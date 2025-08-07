@@ -48,14 +48,12 @@ const WalletConnectionChecker: React.FC<WalletConnectionCheckerProps> = ({
 
           if (provider) {
             console.log("Provider found, setting in context");
-            // Set the wallet provider in context
             setWalletProvider(provider);
 
             // Try to get current accounts to verify connection
             try {
-              // Add delay to prevent race conditions
-              await new Promise(resolve => setTimeout(resolve, 200));
-              
+              await new Promise((resolve) => setTimeout(resolve, 200)); //for prevent race conditions
+
               const accounts = await provider.request({
                 method: "eth_accounts",
               });
@@ -71,7 +69,7 @@ const WalletConnectionChecker: React.FC<WalletConnectionCheckerProps> = ({
                 );
 
                 // Add another delay before connection attempt
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise((resolve) => setTimeout(resolve, 300));
 
                 // Try to establish full connection
                 const connected = await connectWallet();
@@ -80,7 +78,7 @@ const WalletConnectionChecker: React.FC<WalletConnectionCheckerProps> = ({
                     "Full connection established, redirecting to session"
                   );
                   // Add delay before navigation
-                  await new Promise(resolve => setTimeout(resolve, 500));
+                  await new Promise((resolve) => setTimeout(resolve, 500));
                   navigate("/session");
                   return;
                 } else {
