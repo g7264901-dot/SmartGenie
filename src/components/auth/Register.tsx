@@ -11,7 +11,10 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import { getStoredReferralInfo, clearStoredReferralInfo } from "../../utils/referral";
+import {
+  getStoredReferralInfo,
+  clearStoredReferralInfo,
+} from "../../utils/referral";
 
 const Register: React.FC = () => {
   const [referralUrl, setReferralUrl] = useState("");
@@ -28,12 +31,12 @@ const Register: React.FC = () => {
       navigate("/");
       return;
     }
-    
+
     // Check for stored referral information
     const storedReferral = getStoredReferralInfo();
     if (storedReferral) {
-      console.log('Found stored referral:', storedReferral);
-      
+      console.log("Found stored referral:", storedReferral);
+
       // Auto-fill the referral URL field
       const baseURL = window.location.origin;
       let autoFilledURL = `${baseURL}/?ref=${storedReferral.referrerId}`;
@@ -41,7 +44,7 @@ const Register: React.FC = () => {
         autoFilledURL += `&code=${storedReferral.referrerCode}`;
       }
       setReferralUrl(autoFilledURL);
-      
+
       // Process the referral information
       handleStoredReferralInfo(storedReferral);
     }
@@ -56,45 +59,53 @@ const Register: React.FC = () => {
 
   const handleStoredReferralInfo = async (referralInfo: any) => {
     if (!contract || !account) {
-      console.warn('Contract or account not available for referral processing');
+      console.warn("Contract or account not available for referral processing");
       return;
     }
 
     try {
       // Check if we have a User ID (preferred) or address (fallback)
-      if (typeof referralInfo.referrerId === 'number' || /^\d+$/.test(referralInfo.referrerId)) {
-        // It's a User ID - this is the correct format for the contract
+      if (
+        typeof referralInfo.referrerId === "number" ||
+        /^\d+$/.test(referralInfo.referrerId)
+      ) {
+        // User ID for the contract
         const userId = referralInfo.referrerId.toString();
-        
+
         // Validate User ID exists by getting the address
         const referrerAddress = await contract.methods
           .userList(userId)
           .call({ from: account });
-        
-        if (referrerAddress && referrerAddress !== '0x0000000000000000000000000000000000000000') {
+
+        if (
+          referrerAddress &&
+          referrerAddress !== "0x0000000000000000000000000000000000000000"
+        ) {
           setReferralId(userId);
           setReferrerWallet(referrerAddress);
-          
-          toast.success('Referral information detected and verified!', {
+
+          toast.success("Referral information detected and verified!", {
             autoClose: 3000,
           });
         } else {
-          toast.warning('Invalid referral User ID detected');
+          toast.warning("Invalid referral User ID detected");
         }
       } else if (referralInfo.referrerAddress) {
         // Legacy: It's a wallet address - we need to find the User ID
         // This is more complex and less reliable
-        toast.warning('Referral link uses old format. Please ask your referrer for a new link.');
-        
+        toast.warning(
+          "Referral link uses old format. Please ask your referrer for a new link."
+        );
+
         // For now, store the address but warn user
         setReferrerWallet(referralInfo.referrerAddress);
-        setReferralId('Legacy Address Format');
+        setReferralId("Legacy Address Format");
       } else {
-        toast.error('Invalid referral information format');
+        toast.error("Invalid referral information format");
       }
     } catch (error) {
-      console.error('Error processing referral info:', error);
-      toast.error('Could not verify referral information');
+      console.error("Error processing referral info:", error);
+      toast.error("Could not verify referral information");
     }
   };
 
@@ -207,7 +218,7 @@ const Register: React.FC = () => {
       if (success) {
         // Clear stored referral info after successful registration
         clearStoredReferralInfo();
-        
+
         await Swal.fire({
           title: "Registration Successful!",
           text: "You have been successfully registered. Redirecting to dashboard...",
@@ -261,13 +272,14 @@ const Register: React.FC = () => {
           </div>
 
           <div className="p-6">
-            
             {/* Referral URL Input */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Referral URL
                 {referralUrl && getStoredReferralInfo() && (
-                  <span className="ml-2 text-xs text-green-400">(Auto-filled)</span>
+                  <span className="ml-2 text-xs text-green-400">
+                    (Auto-filled)
+                  </span>
                 )}
               </label>
               <div className="flex gap-2">
@@ -277,9 +289,9 @@ const Register: React.FC = () => {
                   onChange={(e) => setReferralUrl(e.target.value)}
                   placeholder="Enter referral URL or it will be auto-filled if detected"
                   className={`flex-1 px-4 py-3 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    referralUrl && getStoredReferralInfo() 
-                      ? 'bg-green-900/20 border-green-500/50'
-                      : 'bg-gray-700 border-gray-600'
+                    referralUrl && getStoredReferralInfo()
+                      ? "bg-green-900/20 border-green-500/50"
+                      : "bg-gray-700 border-gray-600"
                   }`}
                 />
                 <button
@@ -292,7 +304,9 @@ const Register: React.FC = () => {
                   ) : (
                     <>
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      {referralUrl && getStoredReferralInfo() ? 'Recheck' : 'Check'}
+                      {referralUrl && getStoredReferralInfo()
+                        ? "Recheck"
+                        : "Check"}
                     </>
                   )}
                 </button>

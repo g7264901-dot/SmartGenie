@@ -6,7 +6,7 @@ let currentAccount = 0;
 
 async function getABI() {
   let response;
-  response = await fetch("./newmlm.json");
+  response = await fetch("/src/api/newmlm.json");
   const _abiCode = await response.json();
   return _abiCode;
 }

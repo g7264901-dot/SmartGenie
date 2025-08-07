@@ -78,7 +78,7 @@ const WalletConnectionChecker: React.FC<WalletConnectionCheckerProps> = ({
                     "Full connection established, redirecting to session"
                   );
                   // Add delay before navigation
-                  await new Promise((resolve) => setTimeout(resolve, 500));
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
                   navigate("/session");
                   return;
                 } else {

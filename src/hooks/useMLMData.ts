@@ -1,21 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWeb3 } from './useWeb3';
 
-// Import the blockchain dev's functions
-declare global {
-  interface Window {
-    getPersonalDash: () => Promise<any>;
-    getTeamDevDash: () => Promise<any>;
-    getLevelDash: () => Promise<any>;
-    getIncomeDash: () => Promise<any>;
-    getGeneome: () => Promise<any>;
-    initContractInstance: (provider: string) => Promise<any>;
-    checkUserInSmartContract: (address: string) => Promise<boolean>;
-    unixToIndianDate: (timestamp: number) => Promise<string>;
-    currentAccount: string;
-  }
-}
-
 interface PersonalData {
   userId: number;
   refId: number;
@@ -65,10 +50,10 @@ export const useMLMData = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { account } = useWeb3();
-
+  const web3Context = useWeb3();
+  
   const fetchAllData = async () => {
-    if (!account) {
+    if (!web3Context?.account) {
       setError('Wallet not connected');
       return;
     }
@@ -77,16 +62,15 @@ export const useMLMData = () => {
     setError(null);
 
     try {
-      // Set currentAccount for the connection.js functions
-      window.currentAccount = account;
+      const { getPersonalDash, getTeamDevDash, getLevelDash, getIncomeDash, getGeneome } = web3Context;
 
-      // Execute all the blockchain dev's functions in parallel
+      // Execute all the MLM functions in parallel
       const [personalData, teamData, levelData, incomeData, genealogyData] = await Promise.allSettled([
-        window.getPersonalDash?.() || Promise.resolve(null),
-        window.getTeamDevDash?.() || Promise.resolve(null),
-        window.getLevelDash?.() || Promise.resolve({ lvlData: [], lvlTotal: 0 }),
-        window.getIncomeDash?.() || Promise.resolve(null),
-        window.getGeneome?.() || Promise.resolve(null)
+        getPersonalDash(),
+        getTeamDevDash(),
+        getLevelDash(),
+        getIncomeDash(),
+        getGeneome()
       ]);
 
       setData({
@@ -113,15 +97,15 @@ export const useMLMData = () => {
   };
 
   useEffect(() => {
-    if (account && typeof window !== 'undefined') {
-      // Wait a bit for the connection.js functions to be available
+    if (web3Context?.account && web3Context?.isConnected) {
+      // Fetch data when wallet is connected and ready
       const timer = setTimeout(() => {
         fetchAllData();
-      }, 1000);
+      }, 500);
 
       return () => clearTimeout(timer);
     }
-  }, [account]);
+  }, [web3Context?.account, web3Context?.isConnected]);
 
   return {
     data,

@@ -5,11 +5,46 @@ import React, {
   type ReactNode,
 } from "react";
 import Web3 from "web3";
+import BN from "bn.js";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
 // Import blockchain configuration and ABI
 import contractABI from "../api/newmlm.json";
+
+// MLM Data Interfaces
+interface PersonalData {
+  userId: number;
+  refId: number;
+  doj: string;
+}
+
+interface TeamData {
+  dRefCnt: number;
+  indRefCnt: number;
+  refTotal: number;
+}
+
+interface LevelData {
+  level: number;
+  levelStat: string;
+  levelIncome: number;
+}
+
+interface IncomeData {
+  dirRefInc: number;
+  teamBon: number;
+  levelTot: number;
+  totalInc: number;
+}
+
+interface GenealogyNode {
+  address: string;
+  id: number;
+  referrals?: GenealogyNode[];
+}
+
+// MLMData interface removed as it's not used in this context
 
 interface Web3ContextType {
   web3: Web3 | null;
@@ -23,6 +58,23 @@ interface Web3ContextType {
   logout: () => void;
   walletProvider: any;
   setWalletProvider: (provider: any) => void;
+  // MLM specific functions
+  getPersonalDash: () => Promise<PersonalData | null>;
+  getTeamDevDash: () => Promise<TeamData | null>;
+  getLevelDash: () => Promise<{
+    lvlData: LevelData[];
+    lvlTotal: number;
+  } | null>;
+  getIncomeDash: () => Promise<IncomeData | null>;
+  getGeneome: () => Promise<GenealogyNode | null>;
+  getTeamBonus: () => Promise<{ teamBonus: number } | null>;
+  getDirectRefIncome: () => Promise<{
+    dirRefCnt: number;
+    dirRefCalc: string;
+    dirRefIncome: number;
+  } | null>;
+  extractReferralId: (url: string) => Promise<string | null>;
+  unixToIndianDate: (timestamp: number) => string;
 }
 
 interface Web3ProviderProps {
@@ -31,7 +83,7 @@ interface Web3ProviderProps {
 
 export const Web3Context = createContext<Web3ContextType | null>(null);
 
-const CONTRACT_ADDRESS = "0xB3e87A325fDc19DAB850eD85e8057E5b91391C3b";
+const CONTRACT_ADDRESS = "0x6b9c86c809321ba5e4ef4d96f793e45f34828e62";
 const REQUIRED_CHAIN_IDS = [204, 5611]; // opBNB mainnet and testnet
 
 export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
@@ -42,16 +94,81 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
   const [walletProvider, setWalletProvider] = useState<any>(null);
 
   useEffect(() => {
-    // Check if user was previously logged in
-    const savedAccount = localStorage.getItem("currentAccount");
-    if (savedAccount) {
-      setAccount(savedAccount);
+    const initializeFromStorage = async () => {
+      // Check if user was previously logged in
+      const savedAccount = localStorage.getItem("currentAccount");
+      const savedWalletRdns = localStorage.getItem("selectedWalletRdns");
+
+      console.log("Web3Context: Checking stored data", {
+        savedAccount,
+        savedWalletRdns,
+      });
+
+      if (savedAccount && savedWalletRdns) {
+        setAccount(savedAccount);
+        console.log("Web3Context: Account restored from storage");
+
+        // Try to restore the wallet provider
+        try {
+          const provider = await waitForWalletProvider(savedWalletRdns);
+          if (provider) {
+            console.log("Web3Context: Wallet provider restored");
+            setWalletProvider(provider);
+            // The wallet provider will be set, and then initializeWeb3 will be called via useEffect
+          } else {
+            console.warn("Web3Context: Could not restore wallet provider");
+          }
+        } catch (error) {
+          console.error("Web3Context: Error restoring wallet provider:", error);
+        }
+      }
+
+      // Listen for wallet events
+      setupWalletListeners();
+    };
+
+    initializeFromStorage();
+  }, []);
+
+  // Add useEffect to initialize Web3 when walletProvider is set
+  useEffect(() => {
+    if (walletProvider && account) {
+      console.log("Web3Context: walletProvider changed, initializing Web3");
       initializeWeb3();
     }
+  }, [walletProvider, account]);
 
-    // Listen for wallet events
-    setupWalletListeners();
-  }, []);
+  const waitForWalletProvider = (rdns: string): Promise<any> => {
+    return new Promise((resolve) => {
+      let timeoutId: NodeJS.Timeout;
+
+      const handleProvider = (event: any) => {
+        const { info, provider } = event.detail;
+
+        if (info.rdns === rdns) {
+          clearTimeout(timeoutId);
+          window.removeEventListener(
+            "eip6963:announceProvider",
+            handleProvider
+          );
+          resolve(provider);
+        }
+      };
+
+      // Listen for provider announcements
+      window.addEventListener("eip6963:announceProvider", handleProvider);
+
+      // Request providers to announce themselves
+      window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+      // Timeout after 3 seconds if provider not found
+      timeoutId = setTimeout(() => {
+        window.removeEventListener("eip6963:announceProvider", handleProvider);
+        console.log("Timeout waiting for wallet provider:", rdns);
+        resolve(null);
+      }, 3000);
+    });
+  };
 
   const setupWalletListeners = () => {
     if (typeof window !== "undefined" && window.ethereum) {
@@ -129,6 +246,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
       );
       setContract(contractInstance);
 
+      console.log("contract initialized:", contractInstance);
       return true;
     } catch (error) {
       console.error("Network check failed:", error);
@@ -138,9 +256,18 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
   };
 
   const initializeWeb3 = async () => {
+    console.log("Initializing Web3 with walletProvider:", walletProvider);
     if (walletProvider) {
-      await checkNetworkAndInitialize(walletProvider);
-      setIsConnected(true);
+      const success = await checkNetworkAndInitialize(walletProvider);
+      console.log("Network initialization success:", success);
+      if (success) {
+        setIsConnected(true);
+        console.log("Web3 initialized successfully");
+      } else {
+        console.error("Web3 initialization failed");
+      }
+    } else {
+      console.warn("No wallet provider available for initialization");
     }
   };
 
@@ -168,7 +295,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
           method: "eth_requestAccounts",
         });
       }
-      
+
       console.log("Accounts received:", accounts);
 
       if (accounts.length > 0) {
@@ -189,7 +316,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
       return false;
     } catch (error: any) {
       console.error("Wallet connection failed:", error);
-      
+
       // Handle specific error codes
       if (error.code === 4001) {
         console.log("User rejected the connection request");
@@ -206,6 +333,9 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     try {
       if (!contract) return false;
 
+      // const userList = await contract.methods.userList(1).call();
+      // console.log("User list:", userList);
+      // return userList.includes(address);
       const userData = await contract.methods
         .users(address)
         .call({ from: address });
@@ -288,6 +418,308 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     localStorage.removeItem("selectedWalletRdns");
   };
 
+  // MLM Functions migrated from connection.js
+  const getPersonalDash = async (): Promise<PersonalData | null> => {
+    try {
+      if (!contract || !account) return null;
+
+      const userData = await contract.methods.users(account).call();
+      return {
+        userId: Number(userData.id),
+        refId: Number(userData.referrerID),
+        doj: unixToIndianDate(userData.joined),
+      };
+    } catch (error) {
+      console.error("Error fetching personal data:", error);
+      return null;
+    }
+  };
+
+  const getTeamDevDash = async (): Promise<TeamData | null> => {
+    try {
+      if (!contract || !account) return null;
+
+      const tUserData = await contract.methods.tusers(account).call();
+      const directReferralCount = Number(tUserData.directReferralCount);
+      const indirectReferralCount = Number(tUserData.indirectReferralCount);
+      const referralTotal = directReferralCount + indirectReferralCount;
+
+      return {
+        dRefCnt: directReferralCount,
+        indRefCnt: indirectReferralCount,
+        refTotal: referralTotal,
+      };
+    } catch (error) {
+      console.error("Error fetching team data:", error);
+      return null;
+    }
+  };
+
+  const getLevelDash = async (): Promise<{
+    lvlData: LevelData[];
+    lvlTotal: number;
+  } | null> => {
+    try {
+      if (!contract || !account || !web3) return null;
+
+      const userData = await contract.methods.users(account).call();
+      const levelData: LevelData[] = [];
+      let levelIncTotal = new BN("0");
+
+      for (let i = 1; i <= 9; i++) {
+        let stat = "";
+        let calcIncome = 0;
+
+        if (i <= Number(userData.levelEligibility)) {
+          stat = "active";
+          const levelPrice = await contract.methods.LEVEL_PRICE(i).call();
+          const incomeCount = await contract.methods
+            .getUserIncomeCount(account, i)
+            .call();
+          const income = new BN(incomeCount).mul(new BN(levelPrice));
+          levelIncTotal = levelIncTotal.add(income);
+          calcIncome = Number(web3.utils.fromWei(income.toString(), "ether"));
+        } else {
+          stat = "inactive";
+          calcIncome = 0;
+        }
+
+        levelData.push({ level: i, levelStat: stat, levelIncome: calcIncome });
+      }
+
+      const totalInWei = Number(
+        web3.utils.fromWei(levelIncTotal.toString(), "ether")
+      );
+      return { lvlData: levelData, lvlTotal: totalInWei };
+    } catch (error) {
+      console.error("Error fetching level data:", error);
+      return null;
+    }
+  };
+
+  const getTeamBonus = async (): Promise<{ teamBonus: number } | null> => {
+    try {
+      if (!contract || !account || !web3) return null;
+
+      const tUserData = await contract.methods.tusers(account).call();
+      const tmBonus = Number(web3.utils.fromWei(tUserData.earning, "ether"));
+      return { teamBonus: tmBonus };
+    } catch (error) {
+      console.error("Error fetching team bonus:", error);
+      return null;
+    }
+  };
+
+  const getDirectRefIncome = async (): Promise<{
+    dirRefCnt: number;
+    dirRefCalc: string;
+    dirRefIncome: number;
+  } | null> => {
+    try {
+      if (!contract || !account) return null;
+
+      const tUserData = await contract.methods.tusers(account).call();
+      let incomeRate = 0;
+      const directReferralCount = Number(tUserData.directReferralCount);
+
+      if (directReferralCount >= 1 && directReferralCount <= 3) {
+        incomeRate = 0.014;
+      } else if (directReferralCount > 3) {
+        incomeRate = 0.018;
+      } else {
+        return { dirRefCnt: 0, dirRefCalc: "0 X 0.014 = 0", dirRefIncome: 0 };
+      }
+
+      const rawRefIncome = directReferralCount * incomeRate;
+      const directReferralIncome = parseFloat(rawRefIncome.toFixed(5));
+
+      return {
+        dirRefCnt: directReferralCount,
+        dirRefCalc: `${directReferralCount} X ${incomeRate} = ${directReferralIncome}`,
+        dirRefIncome: directReferralIncome,
+      };
+    } catch (error) {
+      console.error("Error fetching direct ref income:", error);
+      return null;
+    }
+  };
+
+  const getIncomeDash = async (): Promise<IncomeData | null> => {
+    try {
+      const [dirRefIncData, teamBonusData, levelTotalData] = await Promise.all([
+        getDirectRefIncome(),
+        getTeamBonus(),
+        getLevelDash(),
+      ]);
+
+      if (!dirRefIncData || !teamBonusData || !levelTotalData) return null;
+
+      const totEarns =
+        dirRefIncData.dirRefIncome +
+        teamBonusData.teamBonus +
+        levelTotalData.lvlTotal;
+
+      return {
+        dirRefInc: dirRefIncData.dirRefIncome,
+        teamBon: teamBonusData.teamBonus,
+        levelTot: levelTotalData.lvlTotal,
+        totalInc: totEarns,
+      };
+    } catch (error) {
+      console.error("Error fetching income data:", error);
+      return null;
+    }
+  };
+
+  const getGeneome = async (): Promise<GenealogyNode | null> => {
+    try {
+      if (!contract || !account) return null;
+
+      const userData = await contract.methods.users(account).call();
+
+      if (!userData.isExist) {
+        return { address: account, id: 0, referrals: [] };
+      }
+
+      const referralTree: GenealogyNode = {
+        address: account,
+        id: Number(userData.id),
+        referrals: [],
+      };
+
+      // Get referrals using getUserReferrals method instead of userData.referral
+      let level1Referrals: string[] = [];
+      try {
+        level1Referrals = await contract.methods
+          .getUserReferrals(account)
+          .call();
+      } catch (err) {
+        console.warn("getUserReferrals failed, trying viewUserReferral", err);
+        try {
+          level1Referrals = await contract.methods
+            .viewUserReferral(account)
+            .call();
+        } catch (err2) {
+          console.warn("viewUserReferral also failed", err2);
+          level1Referrals = [];
+        }
+      }
+
+      const level1Promises = level1Referrals.map(async (addr: string) => {
+        try {
+          const data = await contract.methods.users(addr).call();
+          if (!data.isExist) return null;
+
+          // Get level 2 referrals for this user
+          let level2Referrals: string[] = [];
+          try {
+            level2Referrals = await contract.methods
+              .getUserReferrals(addr)
+              .call();
+          } catch (err) {
+            try {
+              level2Referrals = await contract.methods
+                .viewUserReferral(addr)
+                .call();
+            } catch (err2) {
+              level2Referrals = [];
+            }
+          }
+
+          const level2Promises = level2Referrals.map(
+            async (childAddr: string) => {
+              try {
+                const childData = await contract.methods
+                  .users(childAddr)
+                  .call();
+                if (!childData.isExist) return null;
+                return { address: childAddr, id: Number(childData.id) };
+              } catch (err) {
+                console.warn("Failed to fetch level 2 user:", childAddr, err);
+                return null;
+              }
+            }
+          );
+
+          const level2Nodes = (await Promise.all(level2Promises)).filter(
+            Boolean
+          ) as GenealogyNode[];
+          return { address: addr, id: Number(data.id), referrals: level2Nodes };
+        } catch (err) {
+          console.warn("Failed to fetch level 1 user:", addr, err);
+          return null;
+        }
+      });
+
+      referralTree.referrals = (await Promise.all(level1Promises)).filter(
+        Boolean
+      ) as GenealogyNode[];
+      return referralTree;
+    } catch (error) {
+      console.error("Error fetching genealogy:", error);
+      return { address: account || "", id: 0, referrals: [] };
+    }
+  };
+
+  const extractReferralId = async (url: string): Promise<string | null> => {
+    try {
+      if (!contract || !account || !url) return null;
+
+      const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+
+      // Check URL params first
+      const refParam = urlObj.searchParams.get("ref");
+      if (refParam) {
+        const cleanRef = refParam.replace(/[^a-zA-Z0-9_-]/g, "");
+        try {
+          await contract.methods.userList(cleanRef).call({ from: account });
+          return cleanRef;
+        } catch (err) {
+          console.error("Invalid referral ID:", cleanRef);
+          return null;
+        }
+      }
+
+      // Check path segments
+      const pathParts = urlObj.pathname.split("/");
+      const refIndex = pathParts.findIndex((part) =>
+        ["ref", "referral", "r"].includes(part)
+      );
+      if (refIndex !== -1 && pathParts[refIndex + 1]) {
+        const cleanRef = pathParts[refIndex + 1].replace(/[^a-zA-Z0-9_-]/g, "");
+        try {
+          await contract.methods.userList(cleanRef).call({ from: account });
+          return cleanRef;
+        } catch (err) {
+          console.error("Invalid referral ID:", cleanRef);
+          return null;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error extracting referral ID:", error);
+      return null;
+    }
+  };
+
+  const unixToIndianDate = (unixTimestamp: number): string => {
+    const date = new Date(unixTimestamp * 1000);
+
+    const options: Intl.DateTimeFormatOptions = {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    };
+
+    return new Intl.DateTimeFormat("en-IN", options).format(date);
+  };
+
   const value: Web3ContextType = {
     web3,
     account,
@@ -300,6 +732,16 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     logout,
     walletProvider,
     setWalletProvider,
+    // MLM functions
+    getPersonalDash,
+    getTeamDevDash,
+    getLevelDash,
+    getIncomeDash,
+    getGeneome,
+    getTeamBonus,
+    getDirectRefIncome,
+    extractReferralId,
+    unixToIndianDate,
   };
 
   return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;

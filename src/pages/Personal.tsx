@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useMLMData } from "../hooks/useMLMData";
 import BNBValue from "../components/ui/BNBValue";
+import ContractDebugger from "../components/debug/ContractDebugger";
 
 const Personal: React.FC = () => {
   const { data, loading, error } = useMLMData();
@@ -51,6 +52,8 @@ const Personal: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Debug Component - Remove in production */}
+      <ContractDebugger />
       {/* User Information Section */}
       <div className="bg-slate-700 rounded-xl p-6 shadow-lg">
         <div className="flex items-center space-x-3 mb-6">

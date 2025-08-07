@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useWeb3 } from '../../hooks/useWeb3';
-import { toast } from 'react-toastify';
-import Swal from 'sweetalert2';
-import { Wallet, UserPlus, LogIn, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useWeb3 } from "../../hooks/useWeb3";
+import { toast } from "react-toastify";
+import Swal from "sweetalert2";
+import { Wallet, UserPlus, LogIn, Loader2 } from "lucide-react";
 
 const Session: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string>('');
-  const { 
-    account, 
-    connectWallet, 
-    checkUserRegistration, 
-    loginUser, 
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const {
+    account,
+    connectWallet,
+    checkUserRegistration,
+    loginUser,
     walletProvider,
-    setWalletProvider 
+    setWalletProvider,
   } = useWeb3();
   const navigate = useNavigate();
 
@@ -25,13 +25,13 @@ const Session: React.FC = () => {
     } else if (account) {
       setWalletAddress(account);
     }
-    
+
     // If we have a stored account but no provider, try to restore connection
-    const storedAccount = localStorage.getItem('currentAccount');
-    const storedWalletRdns = localStorage.getItem('selectedWalletRdns');
-    
+    const storedAccount = localStorage.getItem("currentAccount");
+    const storedWalletRdns = localStorage.getItem("selectedWalletRdns");
+
     if (storedAccount && storedWalletRdns && !walletProvider) {
-      console.log('Attempting to restore wallet connection for session page');
+      console.log("Attempting to restore wallet connection for session page");
       restoreWalletConnection(storedWalletRdns);
     }
   }, [walletProvider, account]);
@@ -50,14 +50,14 @@ const Session: React.FC = () => {
         setWalletAddress(account);
       }
     } catch (error) {
-      console.error('Failed to initialize connection:', error);
-      toast.error('Failed to connect wallet');
+      console.error("Failed to initialize connection:", error);
+      toast.error("Failed to connect wallet");
     }
   };
 
   const handleLogin = async () => {
     if (!account) {
-      toast.error('Wallet not connected');
+      toast.error("Wallet not connected");
       return;
     }
 
@@ -66,38 +66,38 @@ const Session: React.FC = () => {
     try {
       // Show confirmation dialog
       const result = await Swal.fire({
-        title: 'Confirm Login',
+        title: "Confirm Login",
         html: `Do you want to login with:<br><strong>${account}</strong>`,
-        icon: 'question',
+        icon: "question",
         showCancelButton: true,
-        confirmButtonText: 'Login',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: "Login",
+        cancelButtonText: "Cancel",
         reverseButtons: true,
-        background: '#1f2937',
-        color: '#ffffff',
-        confirmButtonColor: '#3b82f6',
-        cancelButtonColor: '#6b7280'
+        background: "#1f2937",
+        color: "#ffffff",
+        confirmButtonColor: "#3b82f6",
+        cancelButtonColor: "#6b7280",
       });
 
       if (result.isConfirmed) {
         // Check if user is registered
         const isRegistered = await checkUserRegistration(account);
-        
+
         if (isRegistered) {
           const loginSuccess = await loginUser();
           if (loginSuccess) {
-            toast.success('Login successful!');
-            navigate('/dashboard');
+            toast.success("Login successful!");
+            navigate("/dashboard");
           } else {
-            toast.error('Login failed');
+            toast.error("Login failed");
           }
         } else {
-          toast.error('User not registered. Please register first.');
+          toast.error("User not registered. Please register first.");
         }
       }
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Login failed');
+      console.error("Login error:", error);
+      toast.error("Login failed");
     } finally {
       setIsLoading(false);
     }
@@ -105,24 +105,24 @@ const Session: React.FC = () => {
 
   const handleRegister = async () => {
     if (!account) {
-      toast.error('Wallet not connected');
+      toast.error("Wallet not connected");
       return;
     }
 
     try {
       // Check if user is already registered
       const isRegistered = await checkUserRegistration(account);
-      
+
       if (isRegistered) {
-        toast.info('Already a registered user');
+        toast.info("Already a registered user");
         return;
       }
 
       // Navigate to registration page
-      navigate('/register');
+      navigate("/register");
     } catch (error) {
-      console.error('Registration check error:', error);
-      toast.error('Failed to check registration status');
+      console.error("Registration check error:", error);
+      toast.error("Failed to check registration status");
     }
   };
 
@@ -131,40 +131,45 @@ const Session: React.FC = () => {
       const provider = await waitForWalletProvider(rdns);
       if (provider) {
         setWalletProvider(provider);
-        console.log('Wallet provider restored for session');
+        console.log("Wallet provider restored for session");
       }
     } catch (error) {
-      console.error('Failed to restore wallet connection:', error);
+      console.error("Failed to restore wallet connection:", error);
     }
   };
 
   const waitForWalletProvider = (rdns: string): Promise<any> => {
     return new Promise((resolve) => {
       let timeoutId: NodeJS.Timeout;
-      
+
       const handleProvider = (event: any) => {
         const { info, provider } = event.detail;
-        
+
         if (info.rdns === rdns) {
           clearTimeout(timeoutId);
-          window.removeEventListener('eip6963:announceProvider', handleProvider);
+          window.removeEventListener(
+            "eip6963:announceProvider",
+            handleProvider
+          );
           resolve(provider);
         }
       };
 
-      window.addEventListener('eip6963:announceProvider', handleProvider);
-      window.dispatchEvent(new Event('eip6963:requestProvider'));
-      
+      window.addEventListener("eip6963:announceProvider", handleProvider);
+      window.dispatchEvent(new Event("eip6963:requestProvider"));
+
       timeoutId = setTimeout(() => {
-        window.removeEventListener('eip6963:announceProvider', handleProvider);
+        window.removeEventListener("eip6963:announceProvider", handleProvider);
         resolve(null);
       }, 2000);
     });
   };
 
   const formatAddress = (address: string) => {
-    if (!address) return '';
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    if (!address) return "";
+    return `${address.substring(0, 6)}...${address.substring(
+      address.length - 4
+    )}`;
   };
 
   return (
@@ -176,11 +181,11 @@ const Session: React.FC = () => {
               <Wallet className="w-16 h-16 text-blue-500" />
             </div>
           </div>
-          
+
           <h1 className="text-2xl font-bold text-white mb-2">
-            {walletAddress ? 'Wallet Detected!' : 'Connecting...'}
+            {walletAddress ? "Wallet Detected!" : "Connecting..."}
           </h1>
-          
+
           {walletAddress && (
             <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
               <p className="text-sm text-gray-300 mb-1">Connected Wallet:</p>
@@ -189,9 +194,11 @@ const Session: React.FC = () => {
               </p>
             </div>
           )}
-          
+
           <p className="text-gray-400">
-            {walletAddress ? 'Choose an option to continue' : 'Please wait while we connect your wallet...'}
+            {walletAddress
+              ? "Choose an option to continue"
+              : "Please wait while we connect your wallet..."}
           </p>
         </div>
 
