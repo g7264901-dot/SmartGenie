@@ -8,40 +8,101 @@ import { Wallet, UserPlus, LogIn, Loader2 } from "lucide-react";
 const Session: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string>("");
+  const [currentNetwork, setCurrentNetwork] = useState<string>("Unknown");
+  const [networkId, setNetworkId] = useState<number>(0);
   const {
     account,
     connectWallet,
     checkUserRegistration,
     loginUser,
+    contract,
     walletProvider,
     setWalletProvider,
+    OPBNB_MAINNET_CHAIN_ID,
+    OPBNB_MAINNET_NAME,
   } = useWeb3();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if wallet is connected and get account
     if (walletProvider && !account) {
       initializeConnection();
     } else if (account) {
       setWalletAddress(account);
+      checkNetwork();
     }
 
-    // If we have a stored account but no provider, try to restore connection
     const storedAccount = localStorage.getItem("currentAccount");
     const storedWalletRdns = localStorage.getItem("selectedWalletRdns");
 
     if (storedAccount && storedWalletRdns && !walletProvider) {
-      console.log("Attempting to restore wallet connection for session page");
       restoreWalletConnection(storedWalletRdns);
     }
-  }, [walletProvider, account]);
+  }, [walletProvider, account, contract]);
 
-  // Add effect to handle account updates from Web3Context
   useEffect(() => {
     if (account) {
       setWalletAddress(account);
+      checkNetwork();
     }
   }, [account]);
+
+  const checkNetwork = async () => {
+    // FIXED: Use walletProvider instead of window.ethereum for multi-wallet support
+    if (walletProvider) {
+      try {
+        const chainId = await walletProvider.request({
+          method: "eth_chainId",
+        });
+        const chainIdDecimal = parseInt(chainId, 16);
+        setNetworkId(chainIdDecimal);
+
+        const networkNames = {
+          1: "Ethereum Mainnet",
+          56: "BSC Mainnet",
+          204: OPBNB_MAINNET_NAME,
+        };
+
+        setCurrentNetwork(
+          networkNames[chainIdDecimal as keyof typeof networkNames] ||
+            `Unknown (${chainIdDecimal})`
+        );
+
+        if (chainIdDecimal !== OPBNB_MAINNET_CHAIN_ID) {
+          console.warn("⚠️ Not on opBNB network. Current:", chainIdDecimal);
+          toast.warning(`Please switch to ${OPBNB_MAINNET_NAME}`);
+        }
+      } catch (error) {
+        console.error("Failed to check network:", error);
+      }
+    } else if (typeof window.ethereum !== "undefined") {
+      // Fallback to window.ethereum for backwards compatibility
+      try {
+        const chainId = await window.ethereum.request({
+          method: "eth_chainId",
+        });
+        const chainIdDecimal = parseInt(chainId, 16);
+        setNetworkId(chainIdDecimal);
+
+        const networkNames = {
+          1: "Ethereum Mainnet",
+          56: "BSC Mainnet",
+          204: OPBNB_MAINNET_NAME,
+        };
+
+        setCurrentNetwork(
+          networkNames[chainIdDecimal as keyof typeof networkNames] ||
+            `Unknown (${chainIdDecimal})`
+        );
+
+        if (chainIdDecimal !== OPBNB_MAINNET_CHAIN_ID) {
+          console.warn("⚠️ Not on opBNB network. Current:", chainIdDecimal);
+          toast.warning(`Please switch to ${OPBNB_MAINNET_NAME}`);
+        }
+      } catch (error) {
+        console.error("Failed to check network:", error);
+      }
+    }
+  };
 
   const initializeConnection = async () => {
     try {
@@ -60,11 +121,8 @@ const Session: React.FC = () => {
       toast.error("Wallet not connected");
       return;
     }
-
     setIsLoading(true);
-
     try {
-      // Show confirmation dialog
       const result = await Swal.fire({
         title: "Confirm Login",
         html: `Do you want to login with:<br><strong>${account}</strong>`,
@@ -78,15 +136,11 @@ const Session: React.FC = () => {
         confirmButtonColor: "#3b82f6",
         cancelButtonColor: "#6b7280",
       });
-
       if (result.isConfirmed) {
-        // Check if user is registered
         const isRegistered = await checkUserRegistration(account);
-
         if (isRegistered) {
           const loginSuccess = await loginUser();
           if (loginSuccess) {
-            toast.success("Login successful!");
             navigate("/dashboard");
           } else {
             toast.error("Login failed");
@@ -108,17 +162,12 @@ const Session: React.FC = () => {
       toast.error("Wallet not connected");
       return;
     }
-
     try {
-      // Check if user is already registered
       const isRegistered = await checkUserRegistration(account);
-
       if (isRegistered) {
         toast.info("Already a registered user");
         return;
       }
-
-      // Navigate to registration page
       navigate("/register");
     } catch (error) {
       console.error("Registration check error:", error);
@@ -141,10 +190,8 @@ const Session: React.FC = () => {
   const waitForWalletProvider = (rdns: string): Promise<any> => {
     return new Promise((resolve) => {
       let timeoutId: NodeJS.Timeout;
-
       const handleProvider = (event: any) => {
         const { info, provider } = event.detail;
-
         if (info.rdns === rdns) {
           clearTimeout(timeoutId);
           window.removeEventListener(
@@ -154,10 +201,8 @@ const Session: React.FC = () => {
           resolve(provider);
         }
       };
-
       window.addEventListener("eip6963:announceProvider", handleProvider);
       window.dispatchEvent(new Event("eip6963:requestProvider"));
-
       timeoutId = setTimeout(() => {
         window.removeEventListener("eip6963:announceProvider", handleProvider);
         resolve(null);
@@ -174,34 +219,30 @@ const Session: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-8 w-full max-w-md">
-        <div className="text-center mb-8">
+      <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-6 sm:p-8 w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-500/10 p-4 rounded-full">
-              <Wallet className="w-16 h-16 text-blue-500" />
+            <div className="bg-blue-500/10 p-3 sm:p-4 rounded-full">
+              <Wallet className="w-12 h-12 sm:w-16 sm:h-16 text-blue-500" />
             </div>
           </div>
-
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-white mb-2">
             {walletAddress ? "Wallet Detected!" : "Connecting..."}
           </h1>
-
           {walletAddress && (
             <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
               <p className="text-sm text-gray-300 mb-1">Connected Wallet:</p>
-              <p className="text-white font-mono text-sm">
+              <p className="text-white font-mono text-xs sm:text-sm break-all">
                 {formatAddress(walletAddress)}
               </p>
             </div>
           )}
-
-          <p className="text-gray-400">
+          <p className="text-sm sm:text-base text-gray-400">
             {walletAddress
               ? "Choose an option to continue"
               : "Please wait while we connect your wallet..."}
           </p>
         </div>
-
         {walletAddress ? (
           <div className="space-y-4">
             <button
@@ -216,7 +257,6 @@ const Session: React.FC = () => {
               )}
               Login
             </button>
-
             <button
               onClick={handleRegister}
               disabled={isLoading}
@@ -225,20 +265,27 @@ const Session: React.FC = () => {
               <UserPlus className="w-5 h-5 mr-2" />
               Register
             </button>
+
+            {/* Network Status and Switch Buttons */}
+            {networkId !== 0 && (
+              <div className="bg-gray-700/50 rounded-lg p-3 mb-2">
+                <p className="text-sm text-gray-300 mb-1">Current Network:</p>
+                <p
+                  className={`text-sm font-mono ${
+                    networkId === OPBNB_MAINNET_CHAIN_ID
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {currentNetwork}
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
             <p className="text-gray-400">Connecting to wallet...</p>
-          </div>
-        )}
-
-        {walletAddress && (
-          <div className="mt-6 p-3 bg-gray-700/30 rounded-lg">
-            <div className="flex items-center text-sm text-gray-300">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Wallet connected successfully
-            </div>
           </div>
         )}
       </div>

@@ -83,7 +83,7 @@
     "type": "function",
     "inputs": [],
     "outputs": [
-      { "name": "", "type": "uint32", "value": "1", "internalType": "uint32" }
+      { "name": "", "type": "uint32", "internalType": "uint32" }
     ],
     "constant": true,
     "signature": "0xa4bb170d",
