@@ -175,7 +175,7 @@ const GenealogyTree: React.FC = () => {
             <h2 className="text-white text-lg sm:text-xl font-bold">Genealogy Tree</h2>
           </div>
           {genealogyData?.referrals && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-300 space-y-1 sm:space-y-0">
+            <div className="flex sm:flex-row gap-6 md:gap-0 sm:items-center sm:space-x-4 text-sm text-gray-300 space-y-1 sm:space-y-0">
               <span>Total: <strong className="text-blue-400">{countTotalUsers(genealogyData)}</strong></span>
               <span>Direct: <strong className="text-green-400">{genealogyData.referrals.length}</strong></span>
             </div>
