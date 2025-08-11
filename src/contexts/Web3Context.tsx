@@ -434,24 +434,38 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
         return false;
       }
 
-      if (!referralId || referralId === "Not specified") {
-        toast.error("Invalid referral ID");
+      if (!referralId || referralId === "Not specified" || !/^\d+$/.test(referralId)) {
+        toast.error("Referral ID must be a valid number");
         return false;
       }
 
-      const registrationFeeWei = "5000000000000"; // Test amount
+      const referralIdNumber = parseInt(referralId)
+
+      const referrerAddress = await contract.methods.userList(referralIdNumber).call();
+      if (referrerAddress === "0x0000000000000000000000000000000000000000") {
+        toast.error("Invalid referral ID");
+        return false;
+      }
+      const referrerData = await contract.methods.users(referrerAddress).call();
+      if (!referrerData.isExist) {
+        toast.error("Referral ID does not exist");
+        return false;
+      }
+
+      const registrationFeeWei = "100000000000000000"; 
 
       const gasPrice = await web3.eth.getGasPrice();
       const bufferedGasPrice = Math.floor(Number(gasPrice) * 1.2);
 
+
       const estimatedGas = await contract.methods
-        .regUser(referralId)
+        .regUser(referralIdNumber)
         .estimateGas({
           from: account,
           value: registrationFeeWei,
         });
 
-      await contract.methods.regUser(referralId).send({
+      await contract.methods.regUser(referralIdNumber).send({
         from: account,
         value: registrationFeeWei,
         gas: estimatedGas,

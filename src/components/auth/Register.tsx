@@ -192,7 +192,7 @@ const Register: React.FC = () => {
         <div class="text-left">
           <p><strong>Wallet:</strong> ${formatAddress(account)}</p>
           <p><strong>Referrer ID:</strong> ${referralId}</p>
-          <p><strong>Registration Fee:</strong> 0.000005 BNB (Test)</p>
+          <p><strong>Registration Fee:</strong> 0.1 BNB (Test)</p>
         </div>
       `,
       icon: "question",
