@@ -255,7 +255,9 @@ const Register: React.FC = () => {
               User Registration
             </h2>
             <div className="bg-white/10 rounded-lg p-3">
-              <p className="text-xs sm:text-sm text-white/80 mb-1">Your Wallet Address:</p>
+              <p className="text-xs sm:text-sm text-white/80 mb-1">
+                Your Wallet Address:
+              </p>
               <p className="text-white font-mono text-xs sm:text-sm break-all">
                 {account || "Not connected"}
               </p>
@@ -301,7 +303,9 @@ const Register: React.FC = () => {
                           : "Check"}
                       </span>
                       <span className="sm:hidden">
-                        {referralUrl && getStoredReferralInfo() ? "Re" : "Check"}
+                        {referralUrl && getStoredReferralInfo()
+                          ? "Re"
+                          : "Check"}
                       </span>
                     </>
                   )}
@@ -341,7 +345,7 @@ const Register: React.FC = () => {
               <div className="flex items-center mb-3">
                 <Wallet className="w-5 h-5 text-blue-500 mr-2" />
                 <span className="text-gray-300">Registration Fee:</span>
-                <span className="text-white font-bold ml-2">0.01 BNB</span>
+                <span className="text-white font-bold ml-2">0.1 BNB</span>
               </div>
             </div>
 
