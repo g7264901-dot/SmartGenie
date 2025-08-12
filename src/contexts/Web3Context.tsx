@@ -743,15 +743,42 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
           }
 
           const level2Promises = level2Referrals.map(
-            async (childAddr: string) => {
+            async (level2Addr: string) => {
               try {
-                const childData = await contract.methods
-                  .users(childAddr)
+                const level2Data = await contract.methods
+                  .users(level2Addr)
                   .call();
-                if (!childData.isExist) return null;
-                return { address: childAddr, id: Number(childData.id) };
+                if (!level2Data.isExist) return null;
+
+                let level3Referrals: string[] = [];
+                try {
+                  level3Referrals = await contract.methods.getUserReferrals(level2Addr).call();
+                } catch (err) {
+                  try {
+                    level3Referrals = await contract.methods.viewUserReferral(level2Addr).call();
+                  } catch (err2) {
+                    level3Referrals = [];
+                  }
+                }
+
+                const level3Promises = level3Referrals.map(async (level3Addr: string) => {
+                  try {
+                    const level3Data = await contract.methods.users(level3Addr).call();
+                    if (!level3Data.isExist) return null;
+                    return { address: level3Addr, id: Number(level3Data.id), referrals: [] };
+                  } catch (err) {
+                    console.warn("Failed to fetch level 3 user:", level2Addr, err)
+                    return null;
+                  }
+                });
+
+                const level3Nodes = (await Promise.all(level3Promises)).filter(
+                  Boolean
+                ) as GenealogyNode[];
+
+                return { address: level2Addr, id: Number(level2Data.id), referrals: level3Nodes };
               } catch (err) {
-                console.warn("Failed to fetch level 2 user:", childAddr, err);
+                console.warn("Failed to fetch level 2 user:", level2Addr, err);
                 return null;
               }
             }

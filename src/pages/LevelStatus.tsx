@@ -37,7 +37,7 @@ const LevelStatus: React.FC = () => {
           <h2 className="text-white text-xl font-bold">Upgrade Status & Income</h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.levels.map((level) => (
             <div key={level.level} className="bg-slate-800 rounded-lg p-4 hover:bg-slate-750 transition-colors">
               <div className="flex items-center justify-between mb-3">

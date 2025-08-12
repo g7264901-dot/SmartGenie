@@ -32,7 +32,7 @@ const TreeNode: React.FC<{ user: User; level: number; isLast: boolean; parentHas
   isLast,
   parentHasButton = false,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(level < 2); // Expand first two levels by default
+  const [isExpanded, setIsExpanded] = useState(level < 3); // Expand first two levels by default
   const hasChildren = user.referrals && user.referrals.length > 0;
 
   // Responsive spacing - smaller on mobile
